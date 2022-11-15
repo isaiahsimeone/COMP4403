@@ -125,7 +125,6 @@ public abstract class StatementNode {
         }
     }
 
-
     /**
      * Tree node representing an assignment statement.
      */
@@ -133,16 +132,16 @@ public abstract class StatementNode {
         /**
          * Tree node for expression on left hand side of an assignment.
          */
-        private ExpNode lValue;
+        private List<ExpNode> LValues;
         /**
          * Tree node for the expression to be assigned.
          */
-        private ExpNode exp;
+        private List<ExpNode> expressions;
 
-        public AssignmentNode(Location loc, ExpNode variable, ExpNode exp) {
+        public AssignmentNode(Location loc, List<ExpNode> LValues, List<ExpNode> expressions) {
             super(loc);
-            this.lValue = variable;
-            this.exp = exp;
+            this.LValues = LValues;
+            this.expressions = expressions;
         }
 
         @Override
@@ -150,34 +149,58 @@ public abstract class StatementNode {
             visitor.visitAssignmentNode(this);
         }
 
-        public ExpNode getVariable() {
-            return lValue;
+        /**
+         * Return the LValues contained within this assignment node
+         * @return A list containing Left values of this Assignmnet Node
+         */
+        public List<ExpNode> getVariables() {
+            return LValues;
         }
 
-        public void setVariable(ExpNode variable) {
-            this.lValue = variable;
+        /**
+         * Set the LValues of this assignment node.
+         * @param variables A List of the LValue's to set this Assignment Node to.
+         */
+        public void setVariables(List<ExpNode> variables) {
+            this.LValues = variables;
         }
 
-        public ExpNode getExp() {
-            return exp;
+        /**
+         * Returns a list of the expressions (RHS) contained in this Assignment node.
+         * @return A list of ExpNode's containing the RHS expressions of this
+         *         Assignmnet node.
+         */
+        public List<ExpNode> getExpressions() {
+            return expressions;
         }
 
-        public void setExp(ExpNode exp) {
-            this.exp = exp;
-        }
-
-        String getVariableName() {
-            if (lValue instanceof ExpNode.VariableNode) {
-                return
-                        ((ExpNode.VariableNode) lValue).getVariable().getIdent();
-            } else {
-                return "<no_name>";
-            }
+        /**
+         * Set's the RHS expressions of this Assignment node to the specified
+         * List of ExpNode's.
+         * @param expressions A List of ExpNode's specifying the expression
+         *                    values to be set on the RHS of this Assignment node.
+         */
+        public void setExpressions(List<ExpNode> expressions) {
+            this.expressions = expressions;
         }
 
         @Override
         public String toString(int level) {
-            return lValue.toString() + " := " + exp.toString();
+            StringBuilder varBuilder = new StringBuilder();
+            StringBuilder expBuilder = new StringBuilder();
+            /* Append each variable to the variable StringBuilder. */
+            for (ExpNode variable : LValues) {
+                varBuilder.append(variable.toString()).append(", ");
+            }
+            /* Append each variable to the expression StringBuilder. */
+            for (ExpNode expression : expressions) {
+                expBuilder.append(expression.toString()).append(", ");
+            }
+            /* Remove the last ", " from both the variable and expression String Builders. */
+            varBuilder.delete(varBuilder.length() - 2, varBuilder.length() - 1);
+            expBuilder.delete(expBuilder.length() - 2, expBuilder.length() - 1);
+
+            return varBuilder.toString() + " := " + expBuilder.toString();
         }
     }
 
@@ -391,5 +414,151 @@ public abstract class StatementNode {
                     newLine(level + 1) + loopStmt.toString(level + 1);
         }
     }
-}
 
+    /**
+     * Tree node representing a "Skip" statement.
+     */
+    public static class SkipNode extends StatementNode {
+
+        public SkipNode(Location loc) {
+            super(loc);
+        }
+
+        @Override
+        public void accept(StatementVisitor visitor) {
+            visitor.visitSkipNode(this);
+        }
+
+        @Override
+        public String toString(int level) {
+            return "SKIP";
+        }
+    }
+
+    /**
+     * Tree node representing a "Do" statement.
+     */
+    public static class DoNode extends StatementNode {
+        /**
+         *  Do Branches contained within the Do Statement Node.
+         **/
+        private LinkedList<DoBranch> branches;
+
+        public DoNode(Location loc, LinkedList<DoBranch> branches) {
+            super(loc);
+            this.branches = branches;
+        }
+
+        /**
+         * Returns the branches contained within this DoNode
+         * @return A LinkedList of Do Branches.
+         */
+        public LinkedList<DoBranch> getBranches() {
+            return branches;
+        }
+
+
+        @Override
+        public void accept(StatementVisitor visitor) {
+            visitor.visitDoNode(this);
+        }
+
+        @Override
+        public String toString(int level) {
+            StringBuilder result = new StringBuilder();
+            result.append("DO ");
+
+            for (int i = 0; i < branches.size(); i++) {
+                /* Append the SEPARATOR Token after the first branch. */
+                if (i != 0) {
+                    result.append("[] ");
+                }
+                result.append(branches.get(i).toString(level));
+                /* If this branch is ended with an exit keyword. */
+                if (branches.get(i).hasExit()) {
+                    result.append(" EXIT");
+                }
+                result.append(newLine(level));
+            }
+
+            result.append("OD");
+            return result.toString();
+        }
+    }
+
+    public static class DoBranch extends StatementNode {
+        /**
+         *  The condition of this branch's leading guard.
+         **/
+        ExpNode condition;
+        /**
+         *  The StatementList in this branch
+         **/
+        StatementNode stmt;
+        /**
+         *  Whether this branch is ended with an EXIT keyword.
+         **/
+        boolean hasExit;
+
+        public DoBranch(Location loc, ExpNode condition,
+                        StatementNode stmt, boolean hasExit) {
+            super(loc);
+            this.condition = condition;
+            this.stmt = stmt;
+            this.hasExit = hasExit;
+        }
+
+        /**
+         * Set the condition of this Do Branch
+         * @param condition The condition to assign to the
+         *                  guard of this Do Branch.
+         */
+        public void setCondition(ExpNode condition) {
+            this.condition = condition;
+        }
+
+        /**
+         * Set the statement of this Do Branch
+         * @param stmt The StatementList to update this
+         *             Do Branch with.
+         */
+        public void setStatement(StatementNode stmt) {
+            this.stmt = stmt;
+        }
+
+        /**
+         * Return the condition associated with this Do Branch
+         * @return The guard condition of this Do Branch
+         */
+        public ExpNode getCondition() {
+            return condition;
+        }
+
+        /**
+         * Return the StatementList of this Do Branch
+         * @return The StatementList in this Do Branch
+         */
+        public StatementNode getStatementList() {
+            return stmt;
+        }
+
+        /**
+         * Return whether this Do Branch is ended with the Exit Keyword.
+         * @return True iff this Do Branch has an EXIT
+         *         Keyword at the end. False otherwise.
+         */
+        public boolean hasExit() {
+            return hasExit;
+        }
+
+        @Override
+        public void accept(StatementVisitor visitor) {
+            visitor.visitDoBranch(this);
+        }
+
+        @Override
+        public String toString(int level) {
+            return condition.toString() + " THEN " + stmt.toString(level);
+        }
+    }
+}

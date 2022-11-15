@@ -118,22 +118,36 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
      */
     public void visitAssignmentNode(StatementNode.AssignmentNode node) {
         beginCheck("Assignment");
-        // Check the left side left value.
-        ExpNode left = node.getVariable().transform(this);
-        node.setVariable(left);
-        // Check the right side expression.
-        ExpNode exp = node.getExp().transform(this);
-        node.setExp(exp);
-        // Validate that it is a true left value and not a constant
-        if (left.getType() instanceof Type.ReferenceType) {
-            /* Validate that the right side expression is assignment
-             * compatible with the left value. This requires that the
-             * right side expression is coerced to the base type of
-             * type of the left side LValue. */
-            Type baseType = ((Type.ReferenceType) left.getType()).getBaseType();
-            node.setExp(baseType.coerceExp(exp));
-        } else if (left.getType() != Type.ERROR_TYPE) {
-                staticError("variable expected", left.getLocation());
+        List<ExpNode> variables = node.getVariables();
+        List<ExpNode> expressions = node.getExpressions();
+        HashSet<String> LValuesEncountered = new HashSet<>();
+
+        if (variables != null && expressions != null) {
+            for (int i = 0; i < variables.size(); i++) {
+                /* Check left side LValue */
+                ExpNode left = variables.get(i).transform(this);
+                variables.set(i, left);
+                /* Check right side expression */
+                ExpNode right = expressions.get(i).transform(this);
+                expressions.set(i, right);
+
+                /* Has this LValue already been encountered in this assignment? */
+                if (LValuesEncountered.contains(left.toString())) {
+                    errors.error(left.toString() + " assigned more than once",
+                            left.getLocation());
+                } else {
+                    LValuesEncountered.add(left.toString());
+                }
+                /* Validate that it is a true left value and not a constant */
+                if (left.getType() instanceof Type.ReferenceType) {
+                    Type baseType = (((Type.ReferenceType) left.getType()).getBaseType());
+                    expressions.set(i, baseType.coerceExp(right));
+                } else if (left.getType() != Type.ERROR_TYPE) {
+                    staticError("variable expected", left.getLocation());
+                }
+            }
+            node.setVariables(variables);
+            node.setExpressions(expressions);
         }
         endCheck("Assignment");
     }
@@ -170,7 +184,6 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
         node.setExp(Predefined.INTEGER_TYPE.coerceExp(exp));
         endCheck("Write");
     }
-
 
     /**
      * Call statement node
@@ -231,6 +244,42 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
         node.setCondition(checkCondition(node.getCondition()));
         node.getLoopStmt().accept(this);  // Check the body of the loop
         endCheck("While");
+    }
+
+    /**
+     * Skip statement node
+     */
+    public void visitSkipNode(StatementNode.SkipNode node) {
+        beginCheck("Skip");
+        // Skip, do nothing.
+        endCheck("Skip");
+    }
+
+    /**
+     * Do statement node
+     */
+    public void visitDoNode(DoNode node) {
+        beginCheck("Do");
+        /* Check each DoBranch condition. */
+        for (int i = 0; i < node.getBranches().size(); i++) {
+            ExpNode condition = node.getBranches().get(i).getCondition();
+            node.getBranches().get(i).setCondition(checkCondition(condition));
+        }
+        /* Check DoBranch StatementLists */
+        for (int i = 0; i < node.getBranches().size(); i++) {
+            node.getBranches().get(i).getStatementList().accept(this);
+        }
+        endCheck("Do");
+    }
+
+    /**
+     * A Do Branch from within a Do Statement.
+     */
+    @Override
+    public void visitDoBranch(DoBranch node) {
+        beginCheck("Do Branch");
+        node.accept(this);
+        endCheck("Do Branch");
     }
 
     /*************************************************

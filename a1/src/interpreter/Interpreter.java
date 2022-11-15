@@ -121,18 +121,26 @@ public class Interpreter implements StatementVisitor, ExpTransform<Value> {
         frame.assign(lValue.getAddressOffset(), value);
     }
 
-
-
     /**
      * Execute code for an assignment statement
      */
     public void visitAssignmentNode(StatementNode.AssignmentNode node) {
         beginExec("Assignment");
-        /* Evaluate the code to be assigned */
-        Value value = node.getExp().evaluate(this);
-        /* Assign the value to the variables offset */
-        Value lValue = node.getVariable().evaluate(this);
-        assignValue(lValue, value);
+        List<Value> LValues = new LinkedList<>();
+        List<Value> conditions = new LinkedList<>();
+
+        /* Evaluate the RHS conditions to be assigned */
+        for (ExpNode condition : node.getExpressions()) {
+            conditions.add(condition.evaluate(this));
+        }
+        /* Evaluate the LHS Lvalues to assign to */
+        for (ExpNode LValue : node.getVariables()) {
+            LValues.add(LValue.evaluate(this));
+        }
+        /* Assign the RHS conditions to the LValues specified on the LHS */
+        for (int i = 0; i < conditions.size(); i++) {
+            assignValue(LValues.get(i), conditions.get(i));
+        }
         endExec("Assignment");
     }
 
@@ -211,6 +219,62 @@ public class Interpreter implements StatementVisitor, ExpTransform<Value> {
         endExec("While");
     }
 
+    /**
+     * Execute code for a skip statement
+     */
+    public void visitSkipNode(StatementNode.SkipNode node) {
+        beginExec("Skip");
+        // To please Java compiler - Do nothing.
+        endExec("Skip");
+    }
+
+    /**
+     * Execute code for a Do Statement.
+     */
+    @Override
+    public void visitDoNode(StatementNode.DoNode node) {
+        beginExec("Do");
+        /* Has the EXIT Keyword been encountered. */
+        boolean encounteredExit = false;
+        /* Has a true guard been encountered. */
+        boolean encounteredTrueGuard = false;
+
+        /* Execute Do Statement until KW_EXIT is encountered */
+        while (!encounteredExit) {
+            /* Iterate through each DoBranch */
+            for(StatementNode.DoBranch branch : node.getBranches()) {
+                /* Evaluate the condition of this branch. */
+                int branchCondition =
+                        branch.getCondition().evaluate(this).getInteger();
+                /* If this DoBranch has a true guard. */
+                if (branchCondition == Type.TRUE_VALUE) {
+                    encounteredTrueGuard = true;
+                    branch.getStatementList().accept(this);
+                    /* This branch is followed by KW_EXIT, exit the loop. */
+                    if (branch.hasExit()) {
+                        encounteredExit = true;
+                    }
+                }
+            }
+            /* If no true guard is encountered, throw a runtime error. */
+            if (!encounteredTrueGuard) {
+                runtime("No branch of do loop has a true guard",
+                        node.getLocation(), currentFrame);
+                break;
+            }
+        }
+        endExec("Do");
+    }
+
+    @Override
+    /**
+     * Execution code for a Do Branch.
+     */
+    public void visitDoBranch(StatementNode.DoBranch node) {
+        beginExec("Do Branch");
+        /* Added to please compiler - Execution completed in visitDoStatement. */
+        endExec("Do Branch");
+    }
 
     /* Expression Evaluations */
 
