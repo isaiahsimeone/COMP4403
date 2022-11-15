@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="a68762e1-0126-4030-9da2-bee4073e7b64" name="Default Changelist" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CodeStyleSettingsInfer">
+    <option name="done" value="true" />
+  </component>
+  <component name="ProjectCodeStyleSettingsMigration">
+    <option name="version" value="1" />
+  </component>
+  <component name="ProjectId" id="1Z0ZV9PB76eYUqIzBR8127hF61k" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="Downloaded.Files.Path.Enabled" value="false" />
+    <property name="Repository.Attach.Annotations" value="false" />
+    <property name="Repository.Attach.JavaDocs" value="false" />
+    <property name="Repository.Attach.Sources" value="false" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="project.structure.last.edited" value="Project" />
+    <property name="project.structure.proportion" value="0.15" />
+    <property name="project.structure.side.proportion" value="0.2" />
+    <property name="settings.editor.selected.configurable" value="configurable.group.build" />
+  </component>
+  <component name="RunManager" selected="Application.Run PL0">
+    <configuration name="Run PL0" type="Application" factoryName="Application">
+      <option name="MAIN_CLASS_NAME" value="pl0.PL0_RD" />
+      <module name="a1" />
+      <option name="PROGRAM_PARAMETERS" value="$FilePath$" />
+      <option name="VM_PARAMETERS" value="-ea" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test PL0" type="JUnit" factoryName="JUnit">
+      <module name="a1" />
+      <useClassPathOnly />
+      <option name="PACKAGE_NAME" value="pl0" />
+      <option name="MAIN_CLASS_NAME" value="pl0.Test_RD" />
+      <option name="METHOD_NAME" value="" />
+      <option name="TEST_OBJECT" value="class" />
+      <option name="PARAMETERS" value="" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <list>
+      <item itemvalue="Application.Run PL0" />
+      <item itemvalue="JUnit.Test PL0" />
+    </list>
+  </component>
+  <component name="StructureViewFactory">
+    <option name="ACTIVE_ACTIONS" value=",ALPHA_COMPARATOR" />
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="a68762e1-0126-4030-9da2-bee4073e7b64" name="Default Changelist" comment="" />
+      <created>1583977992470</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1583977992470</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="718" y="392" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1583978125675">
+      <screen x="45" y="23" width="2515" height="1417" />
+    </state>
+    <state x="718" y="392" key="#com.intellij.execution.impl.EditConfigurationsDialog/45.23.2515.1417@45.23.2515.1417" timestamp="1583978125675" />
+    <state x="795" y="123" width="919" height="1217" key="#com.intellij.execution.junit2.states.ComparisonFailureState$DiffDialog" timestamp="1583978186818">
+      <screen x="45" y="23" width="2515" height="1417" />
+    </state>
+    <state x="795" y="123" width="919" height="1217" key="#com.intellij.execution.junit2.states.ComparisonFailureState$DiffDialog/45.23.2515.1417@45.23.2515.1417" timestamp="1583978186818" />
+    <state x="991" y="521" key="#com.intellij.ide.util.TreeClassChooserDialog" timestamp="1583978111603">
+      <screen x="45" y="23" width="2515" height="1417" />
+    </state>
+    <state x="991" y="521" key="#com.intellij.ide.util.TreeClassChooserDialog/45.23.2515.1417@45.23.2515.1417" timestamp="1583978111603" />
+    <state x="991" y="484" key="#com.intellij.refactoring.safeDelete.UnsafeUsagesDialog" timestamp="1584050191645">
+      <screen x="45" y="23" width="2515" height="1417" />
+    </state>
+    <state x="991" y="484" key="#com.intellij.refactoring.safeDelete.UnsafeUsagesDialog/45.23.2515.1417@45.23.2515.1417" timestamp="1584050191645" />
+    <state width="1075" height="408" key="GridCell.Tab.0.bottom" timestamp="1584053975642">
+      <screen x="45" y="23" width="2515" height="1417" />
+    </state>
+    <state width="1075" height="408" key="GridCell.Tab.0.bottom/44.23.2516.1417@44.23.2516.1417" timestamp="1583992473547" />
+    <state width="1075" height="408" key="GridCell.Tab.0.bottom/45.23.2515.1417@45.23.2515.1417" timestamp="1584053975642" />
+    <state width="1075" height="408" key="GridCell.Tab.0.center" timestamp="1584053975641">
+      <screen x="45" y="23" width="2515" height="1417" />
+    </state>
+    <state width="1075" height="408" key="GridCell.Tab.0.center/44.23.2516.1417@44.23.2516.1417" timestamp="1583992473546" />
+    <state width="1075" height="408" key="GridCell.Tab.0.center/45.23.2515.1417@45.23.2515.1417" timestamp="1584053975641" />
+    <state width="1075" height="408" key="GridCell.Tab.0.left" timestamp="1584053975641">
+      <screen x="45" y="23" width="2515" height="1417" />
+    </state>
+    <state width="1075" height="408" key="GridCell.Tab.0.left/44.23.2516.1417@44.23.2516.1417" timestamp="1583992473546" />
+    <state width="1075" height="408" key="GridCell.Tab.0.left/45.23.2515.1417@45.23.2515.1417" timestamp="1584053975641" />
+    <state width="1075" height="408" key="GridCell.Tab.0.right" timestamp="1584053975642">
+      <screen x="45" y="23" width="2515" height="1417" />
+    </state>
+    <state width="1075" height="408" key="GridCell.Tab.0.right/44.23.2516.1417@44.23.2516.1417" timestamp="1583992473546" />
+    <state width="1075" height="408" key="GridCell.Tab.0.right/45.23.2515.1417@45.23.2515.1417" timestamp="1584053975642" />
+    <state x="741" y="312" key="SettingsEditor" timestamp="1584050882358">
+      <screen x="45" y="23" width="2515" height="1417" />
+    </state>
+    <state x="741" y="312" key="SettingsEditor/45.23.2515.1417@45.23.2515.1417" timestamp="1584050882358" />
+    <state x="965" y="631" key="com.intellij.jarRepository.RepositoryAttachDialog-DOWNLOAD" timestamp="1583978039147">
+      <screen x="45" y="23" width="2515" height="1417" />
+    </state>
+    <state x="965" y="631" key="com.intellij.jarRepository.RepositoryAttachDialog-DOWNLOAD/45.23.2515.1417@45.23.2515.1417" timestamp="1583978039147" />
+  </component>
+</project>
