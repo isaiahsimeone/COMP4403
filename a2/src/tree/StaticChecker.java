@@ -9,9 +9,11 @@ import syms.Predefined;
 import syms.SymEntry;
 import syms.Scope;
 import syms.Type;
-import syms.Type.IncompatibleTypes;
 import tree.DeclNode.DeclListNode;
 import tree.StatementNode.*;
+import syms.Type.IncompatibleTypes;
+import syms.Type.ArrayType;
+import syms.Type.ReferenceType;
 
 /**
  * class StaticSemantics - Performs the static semantic checks on
@@ -231,6 +233,49 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
         node.setCondition(checkCondition(node.getCondition()));
         node.getLoopStmt().accept(this);  // Check the body of the loop
         endCheck("While");
+    }
+
+
+    /**
+     * For statement node
+     */
+    @Override
+    public void visitForNode(ForNode node) {
+        beginCheck("For");
+        ExpNode controlVar = node.getControlVariable();
+        ExpNode rangeStart = node.getRange()[0].transform(this);
+        ExpNode rangeEnd = node.getRange()[1].transform(this);
+
+        // The two expressions are coercible to type T
+        rangeStart = rangeStart.getType().optDereferenceType().optWidenSubrange()
+                .coerceExp(rangeStart);
+        rangeEnd = rangeStart.getType().optDereferenceType().optWidenSubrange()
+                .coerceExp(rangeEnd);
+
+        // There must be some scalar type such that the types of lower and upper are coercible
+        if (rangeStart.getType() != rangeEnd.getType()) {
+            staticError("types of upper and lower bounds must match", rangeStart.getLocation());
+        }
+        // Extend the currentScope so that the control variable (lvalue) can be added
+        currentScope = currentScope.extendCurrentScope();
+        // Add the control variable to the current scope
+        String controlVarID = ((ExpNode.IdentifierNode) controlVar).getId();
+        Location controlVarLoc = controlVar.getLocation();
+        ReferenceType controlVarRef = new ReferenceType(rangeStart.getType());
+        currentScope.addVariable(controlVarID, controlVarLoc, controlVarRef);
+        // The control variable is read only within sl
+        ((SymEntry.VarEntry) currentScope.lookup(controlVarID)).setReadOnly(true);
+        // Check each StatementNode in the body of the for node
+        for (StatementNode stmtNode : node.getBody()) {
+            stmtNode.accept(this);
+        }
+        // Set for node fields
+        node.setControlVariable(controlVar.transform(this));
+        node.setRange(rangeStart, rangeEnd);
+
+        // Leave the extended scope
+        currentScope = currentScope.getParent();
+        endCheck("For");
     }
 
     /*************************************************
@@ -474,6 +519,41 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
         endCheck("WidenSubrange");
         return node;
     }
+
+    /**
+     * Semantically verify an array node
+     */
+    @Override
+    public ExpNode visitArrayNode(ExpNode.ArrayNode node) {
+        beginCheck("Array");
+        ExpNode leftValue = node.getLeftValue().transform(this);
+        ExpNode index = node.getIndex().transform(this);
+
+        // LValue must have a type that is a reference type
+        if (leftValue.getType() instanceof ReferenceType) {
+            // Get the baseType of the LValue
+            Type leftValueType = ((ReferenceType) leftValue.getType()).getBaseType();
+            // Lvalue  should be a reference to an array type
+            if (leftValueType instanceof ArrayType) {
+                // Coerce expresssion (RHS)
+                Type argType = ((ArrayType) leftValueType).getArgType();
+                node.setIndex(argType.coerceExp(index));
+                // Reference the result type of the LValue and set the array node accordingly
+                ReferenceType refType = new ReferenceType(((ArrayType) leftValueType)
+                        .getResultType());
+                node.setType(refType);
+            } else {
+                staticError("Expected ArrayType", leftValue.getLocation());
+            }
+        } else {
+            staticError("Expected ReferenceType", leftValue.getLocation());
+        }
+
+        node.setLeftValue(leftValue);
+        endCheck("Array");
+        return node;
+    }
+
 
     //**************************** Support Methods
 

@@ -173,6 +173,8 @@ non terminal Operator         Relation,
                               UnaryOperator;
 non terminal ExpNode          LValue;
 
+non terminal ArrayList<Type.EnumerationElement> Enumeration;
+
 /**-------------------------------------------------------------
  *------------------------ GRAMMAR RULES
  *--------------------------------------------------------------
@@ -211,7 +213,7 @@ non terminal ExpNode          LValue;
  * Program is recognised. The second action following Block is executed
  * after the whole of the Block representing the program is recognised.
  */
-Program ::=  /* empty */ 
+Program ::=  /* empty */
         {:
             /* This action occurs before the whole program is recognised.
              * It constructs the initial symbol table with current scope the
@@ -426,6 +428,8 @@ StatementList ::= Statement:s
         :}
     ;
 
+
+
 Statement ::= KW_WHILE Condition:c KW_DO Statement:s
         {: 
             RESULT = new StatementNode.WhileNode(cxleft, c, s);
@@ -586,9 +590,65 @@ Factor ::= PLUS Factor:e
             RESULT = lval;
         :}
     ;
-UnaryOperator ::= MINUS
+
+UnaryOperator ::=  MINUS
         {:
             RESULT = Operator.NEG_OP;
         :}
     ;
 
+/**-------------------------------------------------------------
+ *------------------ ADDED PRODUCTIONS -------------------------
+ *--------------------------------------------------------------*/
+
+// Rule for Array
+LValue ::= LValue:leftValue LBRACKET Exp:expression RBRACKET
+        {:
+            // ArrayNode(Location loc, ExpNode leftValue, ExpNode expression)
+            RESULT = new ExpNode.ArrayNode(leftValuexleft, leftValue, expression);
+        :};
+
+// Production rule for SUCC and PRED keywords
+UnaryOperator ::= KW_PRED
+        {:
+            RESULT = Operator.PRED_OP;
+        :}
+| KW_SUCC
+        {:
+            RESULT = Operator.SUCC_OP;
+        :};
+
+// Rule for one or more enumeration elements
+ Enumeration ::= IDENTIFIER:ident
+         {:
+             RESULT = new ArrayList<Type.EnumerationElement>();
+             RESULT.add(new Type.EnumerationElement(ident, identxleft));
+         :}
+| Enumeration:enumeration COMMA IDENTIFIER:ident
+         {:
+            // EnumerationElement(String ident, Location loc)
+             enumeration.add(new Type.EnumerationElement(ident, identxleft));
+             RESULT = enumeration;
+         :};
+
+// Production rule for array
+Type ::= KW_ARRAY Type:indexType KW_OF Type:elementType
+         {:
+             //ArrayType(Location loc, Type indexType, Type elementType)
+             RESULT = new Type.ArrayType(indexTypexleft, indexType, elementType);
+         :}
+| LCURLY:loc Enumeration:elements RCURLY
+        {:
+            // EnumerationType(Location loc, List<EnumerationElement> elements, Scope scope)
+            RESULT = new Type.EnumerationType(locxleft, elements, currentScope);
+        :};
+
+// Production rule for the for loop
+Statement ::= KW_FOR LValue:controlVariable COLON Exp:rangeStart
+            RANGE Exp:rangeEnd KW_DO StatementList:loopBody KW_OD
+        {:
+          //Location loc, List<StatementNode> loopBody, ExpNode leftValue, ExpNode rangeStart,
+          // ExpNode rangeEnd
+           RESULT = new StatementNode.ForNode(controlVariablexleft, loopBody, controlVariable,
+                rangeStart, rangeEnd);
+        :};

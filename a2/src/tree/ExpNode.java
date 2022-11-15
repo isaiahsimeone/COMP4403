@@ -95,6 +95,52 @@ public abstract class ExpNode {
     }
 
     /**
+     * Tree node representing an node contained within an Array (AKA an array member)
+     */
+    public static class ArrayNode extends ExpNode {
+        /**
+         * The identifier of this array node
+         */
+        private ExpNode leftValue;
+        /**
+         * The index being assigned to
+         */
+        private ExpNode index;
+
+        public ArrayNode(Location loc, ExpNode leftValue, ExpNode index) {
+            super(loc);
+            this.leftValue = leftValue;
+            this.index = index;
+        }
+
+        public void setLeftValue(ExpNode leftValue) {
+            this.leftValue = leftValue;
+        }
+
+        public void setIndex(ExpNode index) {
+            this.index = index;
+        }
+
+        public ExpNode getLeftValue() {
+            return leftValue;
+        }
+
+        public ExpNode getIndex() {
+            return index;
+        }
+
+        @Override
+        public ExpNode transform(ExpTransform<ExpNode> visitor) {
+            return visitor.visitArrayNode(this);
+        }
+
+        @Override
+        public Code genCode(ExpTransform<Code> visitor) {
+            return visitor.visitArrayNode(this);
+        }
+    }
+
+    /**
      * Tree node representing a constant within an expression.
      */
     public static class ConstNode extends ExpNode {

@@ -318,6 +318,89 @@ public abstract class StatementNode {
     }
 
     /**
+     * Tree node representing a "for" statement.
+     */
+    public static class ForNode extends StatementNode {
+        /**
+         * A list of StatementNodes which form the body of the for loop
+         */
+        private List<StatementNode> body;
+        /**
+         * The control variable of the for loop
+         */
+        private ExpNode controlVariable;
+        /**
+         * The value which the for loop should start from
+         */
+        private ExpNode rangeStart;
+        /**
+         * The value which the for loop should end at (one after)
+         */
+        private ExpNode rangeEnd;
+
+        public ForNode(Location loc, List<StatementNode> loopBody, ExpNode controlVariable,
+                       ExpNode rangeStart, ExpNode rangeEnd) {
+            super(loc);
+            this.body = loopBody;
+            this.controlVariable = controlVariable;
+            this.rangeStart = rangeStart;
+            this.rangeEnd = rangeEnd;
+        }
+
+        public void setControlVariable(ExpNode leftValue) {
+            this.controlVariable = leftValue;
+        }
+
+        public void setRange(ExpNode start, ExpNode end) {
+            this.rangeStart = start;
+            this.rangeEnd = end;
+        }
+
+        public void setBody(List<StatementNode> stmtList) {
+            this.body = stmtList;
+        }
+
+        public ExpNode getControlVariable() {
+            return controlVariable;
+        }
+
+        public ExpNode[] getRange() {
+            return new ExpNode[] {rangeStart, rangeEnd};
+        }
+
+        public List<StatementNode> getBody() {
+            return body;
+        }
+
+        @Override
+        public void accept(StatementVisitor visitor) {
+            visitor.visitForNode(this);
+        }
+
+        @Override
+        public Code genCode(StatementTransform<Code> visitor) {
+            return visitor.visitForNode(this);
+        }
+
+        @Override
+        public String toString(int level) {
+            StringBuilder result = new StringBuilder();
+            // Print out the for loop header
+            result.append("FOR " + controlVariable.toString() + " : " + rangeStart + ".."
+                    + rangeEnd + " DO");
+            result.append(newLine(level + 1));
+            // Print out each of the statements in the body of the loop
+            for (StatementNode s : getBody()) {
+                result.append(s.toString(level + 1));
+            }
+            // Finally, append the OD keyword
+            result.append(newLine(level) + "OD");
+            return result.toString();
+        }
+
+    }
+
+    /**
      * Tree node representing a statement list.
      */
     public static class ListNode extends StatementNode {

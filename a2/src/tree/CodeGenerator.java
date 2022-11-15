@@ -9,6 +9,7 @@ import source.VisitorDebugger;
 import syms.SymEntry;
 import syms.Type;
 import tree.StatementNode.*;
+import syms.Type.ReferenceType;
 
 /**
  * class CodeGenerator implements code generation using the
@@ -228,6 +229,64 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
         endGen("While");
         return code;
     }
+
+
+    /**
+     * Generate code for a "for" statement.
+     */
+    @Override
+    public Code visitForNode(ForNode node) {
+        beginGen("For");
+        // Generate code for each statement within the for loop body
+        Code loop = new Code();
+        for (StatementNode stmtNode : node.getBody()) {
+            loop.append(stmtNode.genCode(this));
+        }
+        // generate code for rangeStart, rangeEnd and the control variable
+        Code controlVar = node.getControlVariable().genCode(this);
+        Code rangeStart = node.getRange()[0].genCode(this);
+        Code code = new Code();
+        // Initiate control variable value to rangeStart - 1
+        // Since it is incremented once before executing the loop code
+        code.append(rangeStart);
+        code.genLoadConstant(-1);
+        code.generateOp(Operation.ADD);
+        code.append(controlVar);
+        code.generateOp(Operation.STORE_FRAME);
+        // Should only be accessed once according to spec
+        code.append(node.getRange()[1].genCode(this));
+
+        // The size of the code which is looped
+        int instructionsSize = loop.size() + 21;
+
+        // Check if control variable < rangeEnd
+        code.generateOp(Operation.DUP);                // loop from here
+        code.append(controlVar);                       //
+        code.generateOp(Operation.LOAD_ABS);           // controlVar on top of stack
+        code.generateOp(Operation.LESSEQ);             //
+        code.generateOp(Operation.ONE);                //
+        code.generateOp(Operation.XOR);                // now, is controlVar > rangeEnd?
+
+        // If the top of the stack is 0, jump
+        code.genLoadConstant(instructionsSize - 10);
+        code.generateOp(Operation.BR_FALSE);
+
+        // Increment control variable
+        code.generateOp(Operation.ONE);
+        code.append(controlVar);
+        code.generateOp(Operation.LOAD_ABS);           // controlVar on top of stack
+        code.generateOp(Operation.ADD);                //
+        code.append(controlVar);                       //
+        code.generateOp(Operation.STORE_FRAME);        // Store the controlVar + 1
+        code.append(loop);
+        // Jump backwards (-ve) to evaluate the
+        // condition again and repeat the loop
+        code.genLoadConstant(-1 * instructionsSize);   //
+        code.generateOp(Operation.BR);                 //
+        code.generateOp(Operation.POP);                // End
+        endGen("For");
+        return code;
+    }
     //************* Expression node code generation visit methods
 
     /**
@@ -276,6 +335,7 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
         ExpNode left = node.getLeft();
         ExpNode right = node.getRight();
         switch (node.getOp()) {
+
             case ADD_OP:
                 code = genArgs(left, right);
                 code.generateOp(Operation.ADD);
@@ -334,9 +394,37 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
     public Code visitUnaryNode(ExpNode.UnaryNode node) {
         beginGen("Unary");
         Code code = node.getArg().genCode(this);
+        int upperBound = node.getArg().getType().getScalarType().getUpper();
+        int lowerBound = node.getArg().getType().getScalarType().getLower();
         switch (node.getOp()) {
             case NEG_OP:
                 code.generateOp(Operation.NEGATE);
+                break;
+            case PRED_OP:
+                code.genLoadConstant(-1);            // 1
+                code.generateOp(Operation.ADD);      // 3
+                code.generateOp(Operation.DUP);      // 4
+                code.genLoadConstant(lowerBound);    // 5
+                code.generateOp(Operation.LESS);     // 7
+                code.genLoadConstant(3);             // 8 (3 = Size of following operations)
+                code.generateOp(Operation.BR_FALSE); // 10 lower < node.getArg ? (if false exit)
+                // Wrap around
+                code.generateOp(Operation.POP);      // 11 Stack top < lowerBound, use upperBound
+                code.genLoadConstant(upperBound);    // 12
+                break;
+            case SUCC_OP:
+                code.genLoadConstant(1);             // 1
+                code.generateOp(Operation.ADD);      // 2
+                code.generateOp(Operation.DUP);      // 3
+                code.genLoadConstant(upperBound);    // 4
+                code.generateOp(Operation.LESSEQ);   // 6  upperBound <= node.getArg ?
+                code.generateOp(Operation.ONE);      // 7
+                code.generateOp(Operation.XOR);      // 8  A xor 1 = !A
+                code.genLoadConstant(3);             // 9  (3 = Size of following operations)
+                code.generateOp(Operation.BR_FALSE); // 11 upper > node.getArg ? (if false exit)
+                // Wrap around
+                code.generateOp(Operation.POP);      // 12 Stack top > upperBound, use lowerBound
+                code.genLoadConstant(lowerBound);    // 13
                 break;
             default:
                 errors.fatal("PL0 Internal error: Unknown operator",
@@ -406,6 +494,44 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
         endGen("WidenSubrange");
         return code;
     }
+
+    /**
+     * Generate code for an array node
+     *
+     * For some array A, it starts at some location
+     * in memory where the first position is denoted by A[0] or A
+     * Since the array is stored contiguously, the ith element in A
+     * Is given by A + i * sizeof(element in A)
+     */
+    @Override
+    public Code visitArrayNode(ExpNode.ArrayNode node) {
+        beginGen("Array");
+        ExpNode leftValue = node.getLeftValue();
+        ExpNode index = node.getIndex();
+        int lowerBound = node.getIndex().getType().getScalarType().getLower();
+        int upperBound = node.getIndex().getType().getScalarType().getUpper();
+
+        Code code = leftValue.genCode(this);
+        // Generate code for the index
+        code.append(index.genCode(this));
+        // test-array-11.pl0 - Check that index is within rangeStart to rangeEnd
+        code.genLoadConstant(lowerBound);
+        code.genLoadConstant(upperBound);
+        code.generateOp(Operation.BOUND);
+        // Push the size taken by one element onto the stack (sizeof(element in lvalue))
+        code.genLoadConstant(((ReferenceType) node.getType()).getBaseType().getSpace());
+        code.generateOp(Operation.MPY);
+        code.generateOp(Operation.ADD); // elemSize * index + leftValue
+        // Negate the lowerBound to ensure that indexing remains in range
+        // (if lowerBound is negative, then index can be negative and (elemSize * index + LValue)
+        // would fail (Same for lowerBound values > 0 (it could be out of range))
+        code.genLoadConstant(-1 * lowerBound);
+        code.generateOp(Operation.ADD);
+
+        endGen("Array");
+        return code;
+    }
+
     //**************************** Support Methods
 
     /**
