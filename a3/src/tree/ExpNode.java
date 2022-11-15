@@ -430,4 +430,96 @@ public abstract class ExpNode {
         }
     }
 
+    /**
+     * Tree node representing a Set node
+     */
+    public static class SetNode extends ExpNode {
+        private List<ExpNode> elements;
+
+        private Type setType;
+
+        /* @requires exp.getType().equals(type.getBaseType()) */
+        public SetNode(Location loc, Type setType, List<ExpNode> elements) {
+            super(loc, setType);
+            this.elements = elements;
+            this.setType = setType;
+        }
+
+        public Type getSetIdentifier() {
+            return setType;
+        }
+
+        public List<ExpNode> getElements() {
+            return elements;
+        }
+
+        public void setElement(int index, ExpNode element) {
+            elements.set(index, element);
+        }
+
+        public void setElements(List<ExpNode> elements) {
+            this.elements = elements;
+        }
+
+        public void setSetIdentifier(Type setIdentifier) {
+            this.setType = setIdentifier;
+        }
+
+        @Override
+        public ExpNode transform(ExpTransform<ExpNode> visitor) {
+            return visitor.visitSetNode(this);
+        }
+
+        @Override
+        public Code genCode(ExpTransform<Code> visitor) {
+            return visitor.visitSetNode(this);
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder out = new StringBuilder();
+            out.append(type).append("{");
+            for (ExpNode exp : elements) {
+                out.append(exp).append(", ");
+            }
+            out.deleteCharAt(out.length() - 1);
+            out.append("}");
+            return out.toString();
+
+        }
+    }
+
+    /**
+     * Tree node representing a Parameter node
+     */
+    public static class ParameterNode extends ExpNode {
+
+        private Location loc;
+        private ExpNode exp;
+
+        public ParameterNode(Location loc, ExpNode exp) {
+            super(loc, exp.getType());
+            this.loc = loc;
+            this.exp = exp;
+        }
+
+        public void setExp(ExpNode exp) {
+            this.exp = exp;
+        }
+
+        public ExpNode getExp() {
+            return exp;
+        }
+
+        @Override
+        public ExpNode transform(ExpTransform<ExpNode> visitor) {
+            return visitor.visitParameterNode(this);
+        }
+
+        @Override
+        public Code genCode(ExpTransform<Code> visitor) {
+            return visitor.visitParameterNode(this);
+        }
+    }
+
 }

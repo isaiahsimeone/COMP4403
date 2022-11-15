@@ -282,10 +282,26 @@ public abstract class StatementNode {
     public static class CallNode extends StatementNode {
         private final String id;
         private SymEntry.ProcedureEntry procEntry;
+        private List<ExpNode.ParameterNode> parameterList;
 
         public CallNode(Location loc, String id) {
             super(loc);
             this.id = id;
+        }
+
+        // Overloaded constructor for ParameterNode's
+        public CallNode(Location loc, String id, List<ExpNode.ParameterNode> parameterList) {
+            super(loc);
+            this.id = id;
+            this.parameterList = parameterList;
+        }
+
+        public void setParameterList(List<ExpNode.ParameterNode> parameterList) {
+            this.parameterList = parameterList;
+        }
+
+        public List<ExpNode.ParameterNode> getActualParameterList() {
+            return parameterList;
         }
 
         @Override

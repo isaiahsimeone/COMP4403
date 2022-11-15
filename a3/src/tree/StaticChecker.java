@@ -130,8 +130,14 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
              * compatible with the left value. This requires that the
              * right side expression is coerced to the base type of
              * type of the left side LValue. */
-            Type baseType = ((Type.ReferenceType) left.getType()).getBaseType();
-            node.setExp(baseType.coerceExp(exp));
+            Type baseType = (((Type.ReferenceType) left.getType()).getBaseType());
+            if (left.getType().optDereferenceType() instanceof Type.SetType) {
+                // Resolve idRefType
+                exp.setType(exp.getType().resolveType());
+                node.setExp(baseType.resolveType().coerceExp(exp));
+            } else {
+                node.setExp(baseType.coerceExp(exp));
+            }
         } else if (left.getType() != Type.ERROR_TYPE) {
                 staticError("variable expected", left.getLocation());
         }
@@ -177,13 +183,49 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
      */
     public void visitCallNode(StatementNode.CallNode node) {
         beginCheck("Call");
+        SymEntry.ProcedureEntry procEntry;
         // Look up the symbol table entry for the procedure.
         SymEntry entry = currentScope.lookup(node.getId());
         if (entry instanceof SymEntry.ProcedureEntry) {
-            SymEntry.ProcedureEntry procEntry = (SymEntry.ProcedureEntry) entry;
+            procEntry = (SymEntry.ProcedureEntry) entry;
             node.setEntry(procEntry);
         } else {
             staticError("Procedure identifier required", node.getLocation());
+            endCheck("Call");
+            return ;
+        }
+
+        List<SymEntry.ParamEntry> formalParameters =
+                ((SymEntry.ProcedureEntry) entry).getType().getFormalParams();
+
+        // Check that formal parameter count matches actual parameter count
+        if (formalParameters.size() != node.getActualParameterList().size()) {
+            staticError("wrong number of parameters", node.getLocation());
+            endCheck("Call");
+            return ;
+        }
+
+        for (int i = 0; i < node.getActualParameterList().size(); i++) {
+            ExpNode.ParameterNode actualParameter = node.getActualParameterList().get(i);
+            SymEntry.ParamEntry formalParameter = formalParameters.get(i);
+
+            // Accept actual parameter expression
+            actualParameter.setExp(actualParameter.getExp().transform(this));
+
+            // Calculate offset for formal parameter (in reverse order negative)
+            formalParameter.setOffset(-1 * formalParameters.size() + i);
+
+            // Check formal and actual parameters for var types
+            Type actualType = actualParameter.getExp().getType();
+            // If the formal parameter is a reference and it doesn't match the type of actual
+            if (formalParameter.isRef() && !(actualType.equals(formalParameter.getType()))) {
+                // Check that actual parameter type matches formal declaration
+                staticError("type should be " + formalParameter.getType()
+                        + " not " + actualType, actualParameter.getLocation());
+            } else {
+                Type formalBaseType = formalParameter.getType().getBaseType();
+                actualParameter.setExp(formalBaseType.coerceExp(actualParameter.getExp()));
+            }
         }
         endCheck("Call");
     }
@@ -483,6 +525,46 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
         beginCheck("WidenSubrange");
         // Nothing to do.
         endCheck("WidenSubrange");
+        return node;
+    }
+
+    @Override
+    public ExpNode visitSetNode(ExpNode.SetNode node) {
+        beginCheck("Set");
+        // The identifier must be some set type, setof(R), for some subrange type R
+        List<ExpNode> newElements = new ArrayList<>();
+
+        SymEntry entry = currentScope.lookup(node.getSetIdentifier().getName());
+        Type setElementType;
+        // check that identifier is TypeEntry of setof(R) for subrange R
+        if (entry instanceof SymEntry.TypeEntry) {
+            if (entry.getType() instanceof Type.SetType) {
+                Type setSubrType = ((Type.SetType) entry.getType()).getElementType();
+                setElementType = ((Type.SubrangeType) setSubrType).getBaseType(); // Type of R
+
+                for (ExpNode e : node.getElements()) {
+                    // Attempt coercion to the type of the elements in the set
+                    ExpNode newExp = setElementType.coerceExp(e).transform(this);
+                    newElements.add(newExp);
+                }
+            } else {
+                staticError("Expected SetType", node.getLocation());
+            }
+        } else {
+            staticError("Expected TypeEntry", node.getLocation());
+        }
+
+        node.setElements(newElements);
+
+        endCheck("Set");
+        return node;
+    }
+
+    @Override
+    public ExpNode visitParameterNode(ExpNode.ParameterNode node) {
+        beginCheck("ParameterNode");
+        // Checking already done
+        endCheck("ParameterNode");
         return node;
     }
 

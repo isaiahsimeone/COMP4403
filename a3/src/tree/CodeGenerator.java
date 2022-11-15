@@ -173,11 +173,27 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
         SymEntry.ProcedureEntry proc = node.getEntry();
         Code code = new Code();
         code.genComment("call:");
+        List<ExpNode.ParameterNode> parameters = node.getActualParameterList();
+
+        for (int i = 0; i < parameters.size(); i++) {
+            code.append(parameters.get(i).getExp().genCode(this));
+            if (proc.getType().getFormalParams().get(i).isRef()) {
+                code.generateOp(Operation.TO_GLOBAL);
+                code.genLoadConstant(parameters.size() - i);
+                code.generateOp(Operation.STORE_FRAME);
+            }
+        }
+
         /* Generate the call instruction. The second parameter is the
          * procedure's symbol table entry. The actual address is resolved
          * at load time.
          */
         code.genCall(staticLevel - proc.getLevel(), proc);
+
+        // After procedure exit, deallocate space used
+        code.genLoadConstant(parameters.size());
+        code.generateOp(Operation.DEALLOC_STACK);
+
         endGen("Call");
         return code;
     }
@@ -329,6 +345,57 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
                 code = genArgs(right, left);
                 code.generateOp(Operation.LESSEQ);
                 break;
+            case IN_OP:
+                Type.SetType st = (Type.SetType)node.getRight().getType().resolveType();
+                Type.SubrangeType et = (Type.SubrangeType)st.getElementType();
+                int lower = et.getLower();
+                int upper = et.getUpper();
+                // Calculate set element offset
+                // (we want the lowest value element to be bit #1 in the set bitmap)
+                int offset = (lower >= 1 ? -1 * (lower - 1) : -1 * lower + 1);
+                code = genArgs(right, left);
+                // Bound checking
+                code.generateOp(Operation.DUP);
+                // is left < lower?
+                code.genLoadConstant(lower);
+                code.generateOp(Operation.LESS);
+                code.generateOp(Operation.ONE);        // Works, but Operation.NOT doesn't?
+                code.generateOp(Operation.XOR);
+                code.genLoadConstant(16);
+                code.generateOp(Operation.BR_FALSE);   // IF LEFT < LOWER out of bounds, jump
+                // is left > upper?
+                code.generateOp(Operation.DUP);
+                code.genLoadConstant(upper);
+                code.generateOp(Operation.LESSEQ);
+                code.genLoadConstant(9);
+                code.generateOp(Operation.BR_FALSE);    // IF LEFT > UPPER out of bounds, jump
+                // Check membership - Shift 32bit word right by 'left'
+                // Load offset to bring 'left' into its appropriate range
+                code.genLoadConstant(offset);
+                code.generateOp(Operation.ADD);
+                code.generateOp(Operation.SHIFT_RIGHT);
+                // Bit mask with 0b1. If top of stack is 1, left is in right, 0 otherwise
+                code.generateOp(Operation.ONE);
+                code.generateOp(Operation.AND);
+                code.genLoadConstant(1);
+                code.generateOp(Operation.BR);          // jump over the zero operation
+                code.generateOp(Operation.ZERO);        // Out of bounds (push 0 (false))
+                break;
+            case UNION_OP:
+                code = genArgs(left, right);
+                code.generateOp(Operation.OR);
+                break;
+            case INTERSECTION_OP:
+                code = genArgs(left, right);
+                code.generateOp(Operation.AND);
+                break;
+            case DIFFERENCE_OP:
+                // (left ^ right) & left
+                code = genArgs(left, right);
+                code.append(left.genCode(this));
+                code.generateOp(Operation.XOR);
+                code.generateOp(Operation.AND);
+                break;
             default:
                 errors.fatal("PL0 Internal error: Unknown operator",
                         node.getLocation());
@@ -346,6 +413,9 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
         switch (node.getOp()) {
             case NEG_OP:
                 code.generateOp(Operation.NEGATE);
+                break;
+            case COMPLEMENT_OP:
+                code.generateOp(Operation.NOT);
                 break;
             default:
                 errors.fatal("PL0 Internal error: Unknown operator",
@@ -413,6 +483,47 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
          */
         Code code = node.getExp().genCode(this);
         endGen("WidenSubrange");
+        return code;
+    }
+
+    @Override
+    public Code visitSetNode(ExpNode.SetNode node) {
+        beginGen("Set");
+        Code code = new Code();
+        code.genComment("Set:");
+
+        // Get the lowerbound of the underlying subrange
+        Type.SetType st = (Type.SetType)node.getSetIdentifier().resolveType();
+        Type.SubrangeType et = (Type.SubrangeType)st.getElementType();
+
+        int lower = et.getLower();
+
+        // Determine the offset of each element (i.e. bring it into the range of the 32 bit word
+        // (the lowest element should be represented by the first bit)
+        int offset = (lower >= 1 ? -1 * (lower - 1) : -1 * lower + 1);
+
+        code.generateOp(Operation.ZERO);
+
+        // build a bitmap for the set
+        for (ExpNode e : node.getElements()) {
+            code.generateOp(Operation.ONE);
+
+            code.append(e.genCode(this));    // Generate the code for the set element
+            code.genLoadConstant(offset);           // Set the nth bit to 1, bitmap |= (1 << e)
+            code.generateOp(Operation.ADD);
+            // Shift left and bitwise or to add the element to the bitmap
+            code.generateOp(Operation.SHIFT_LEFT);
+            code.generateOp(Operation.OR);
+        }
+
+        endGen("Set");
+        return code;
+    }
+
+    @Override
+    public Code visitParameterNode(ExpNode.ParameterNode node) {
+        Code code = new Code();
+        code.append(node.getExp().genCode(this));
         return code;
     }
     //**************************** Support Methods

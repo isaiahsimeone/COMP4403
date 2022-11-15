@@ -151,11 +151,12 @@ non terminal                  VarDeclSeq,
                               VarDecl;
 non terminal DeclNode.ProcedureNode  ProcedureDef;
 non terminal SymEntry.ProcedureEntry ProcedureHead;
-non terminal 
-                              FormalParamList;
-non terminal
-                              ActualParamList;
+non terminal SymEntry.ParamEntry     FormalParam;
+non terminal ExpNode.ParameterNode  ActualParam;
+non terminal List<SymEntry.ParamEntry>  FormalParamList;
+non terminal List<ExpNode.ParameterNode>    ActualParamList;
 non terminal List<StatementNode> StatementList;
+non terminal List<ExpNode>  ElementList;
 non terminal StatementNode    Statement,
                               CompoundStatement;
 non terminal ExpNode          Condition,
@@ -170,52 +171,54 @@ non terminal Operator         Relation,
 non terminal ExpNode          LValue;
 
 
+
+
 /**-------------------------------------------------------------
  *------------------------ GRAMMAR RULES
  *--------------------------------------------------------------
  * Grammar productions have actions associated with them, which are
  * executed after recognising (part of) the right side of the production.
- *  
+ *
  * The action is Java code contained between '{:' and ':}'
- * It is allowed to reference the values of attributes of symbols on 
- * the right side (the name of these attributes is the name after the 
- * ':' following a symbol, e.g., in the rule for Program the attribute 
- * associated with Block is 'block'), and assignments to the attribute of 
+ * It is allowed to reference the values of attributes of symbols on
+ * the right side (the name of these attributes is the name after the
+ * ':' following a symbol, e.g., in the rule for Program the attribute
+ * associated with Block is 'block'), and assignments to the attribute of
  * the left side nonterminal (which is always referred to as 'RESULT').
  *
  * Be careful to get the syntax of the '{:' and ':}' correct and to
  * make sure they match up, otherwise the error messages get very
  * confusing. Also don't forget the ";" at the end of a production.
- * 
+ *
  * To allow the locations of errors in the input source program to be
  * reported, each attribute, such as "id" associated with IDENTIFIER
- * in the production for ConstDef, has two further attributes "idxleft" 
+ * in the production for ConstDef, has two further attributes "idxleft"
  * and "idxright", representing the locations (think of a location as
- * a line and column number) of the leftmost and rightmost characters 
+ * a line and column number) of the leftmost and rightmost characters
  * of the construct in the input source program.
  * Note that the name "idxleft" is constructed from the name "id" by
- * adding "xleft" to it. 
+ * adding "xleft" to it.
  *
- * Java-CUP has a special non-terminal symbol 'error', which is used to 
- * allow recovery from syntax errors in the program. 
+ * Java-CUP has a special non-terminal symbol 'error', which is used to
+ * allow recovery from syntax errors in the program.
  *
  * The action code usually comes at the end of the right side of a production,
  * however, it is possible to have multiple actions, each of which is executed
  * as soon as the symbols preceding it are matched.
- * For example, for Program the first thing on the right side is an 
+ * For example, for Program the first thing on the right side is an
  * action, and hence this action is executed before the right side of
- * program (namely Block) is recognised, i.e., before any of the 
+ * program (namely Block) is recognised, i.e., before any of the
  * Program is recognised. The second action following Block is executed
  * after the whole of the Block representing the program is recognised.
  */
-Program ::=  /* empty */ 
+Program ::=  /* empty */
         {:
             /* This action occurs before the whole program is recognised.
              * It constructs the initial symbol table with current scope the
              * predefined scope. */
             currentScope = new SymbolTable().getPredefinedScope();
             /* Set up a dummy symbol table entry for the main program */
-            SymEntry.ProcedureEntry procMain = 
+            SymEntry.ProcedureEntry procMain =
                 currentScope.addProcedure("<main>", ErrorHandler.NO_LOCATION);
             if(procMain  == null) {
                 errors.fatal("Could not add main program to symbol table",
@@ -226,7 +229,7 @@ Program ::=  /* empty */
             currentScope = currentScope.newScope(procMain);
         :}
      Block:block
-        {: 
+        {:
             /* This action is executed after the whole program
              * has been recognised */
             /* Returned result of the whole parsing phase */
@@ -246,7 +249,7 @@ Block ::= DeclarationList:dl CompoundStatement:b
             RESULT = new StatementNode.BlockNode(bxleft, dl, b, currentScope);
         :}
     ;
-DeclarationList ::= DeclarationList:dl ProcedureDef:p 
+DeclarationList ::= DeclarationList:dl ProcedureDef:p
         {:
             /* Add a procedure declaration to the list of declarations */
             dl.addDeclaration(p);
@@ -277,27 +280,27 @@ ConstDef ::= IDENTIFIER:id EQUALS Constant:c SEMICOLON
         {:
             /* The attribute idxleft represents the location of the first
              * character of the IDENTIFIER token in the input stream.
-             * addConstant returns null if id is already defined 
+             * addConstant returns null if id is already defined
              * in the current scope */
             if(currentScope.addConstant(id, idxleft, c) == null) {
                 errors.error(id + " already declared in this scope", idxleft);
             }
         :}
-    |  error 
+    |  error
     ;
-/* The rules for Constant construct a (mini) abstract syntax tree 
+/* The rules for Constant construct a (mini) abstract syntax tree
  * for constant expressions (not to be confused with ExpNodes).
  */
 Constant ::= NUMBER:n
-        {: 
+        {:
             RESULT = new ConstExp.NumberNode(nxleft, Predefined.INTEGER_TYPE, n);
         :}
     |  MINUS:op Constant:c
-        {: 
+        {:
             RESULT = new ConstExp.NegateNode(opxleft, c);
         :}
     |  IDENTIFIER:id
-        {: 
+        {:
             RESULT = new ConstExp.ConstIdNode(idxleft, id, currentScope);
         :}
     |  error:err
@@ -306,27 +309,31 @@ Constant ::= NUMBER:n
         :}
     ;
 
-TypeDefSeq ::= TypeDef 
+TypeDefSeq ::= TypeDef
     |  TypeDefSeq TypeDef
     ;
 
 TypeDef ::= IDENTIFIER:id EQUALS Type:type SEMICOLON
-        {: 
+        {:
             SymEntry.TypeEntry entry = currentScope.addType(id, idxleft, type);
             if(entry == null) {
                 errors.error(id + " already declared in this scope", idxleft);
             }
         :}
-    |  error 
+    |  error
     ;
 
 Type ::= TypeIdentifier:type
-        {: 
+        {:
             RESULT = type;
         :}
     | LBRACKET:subr Constant:lo RANGE Constant:hi RBRACKET
         {:
             RESULT = new Type.SubrangeType(subrxleft, lo, hi);
+        :}
+    | KW_SETOF:loc Type:elementType
+        {:
+            RESULT = new Type.SetType(locxleft, elementType);
         :}
     | error:err
         {:
@@ -347,7 +354,7 @@ VarDeclSeq ::= VarDecl
     ;
 
 VarDecl ::= IDENTIFIER:id COLON TypeIdentifier:type SEMICOLON
-        {: 
+        {:
             // Variables are always of ReferenceType.
             Type.ReferenceType varType = new Type.ReferenceType(type);
             if(currentScope.addVariable(id, idxleft, varType) == null) {
@@ -356,7 +363,7 @@ VarDecl ::= IDENTIFIER:id COLON TypeIdentifier:type SEMICOLON
         :}
     |  error
     ;
-    
+
 ProcedureDef ::= ProcedureHead:procEntry EQUALS Block:b SEMICOLON
         {:
             /* Executed after recognising the whole procedure.
@@ -368,7 +375,7 @@ ProcedureDef ::= ProcedureHead:procEntry EQUALS Block:b SEMICOLON
     ;
 
 ProcedureHead ::= KW_PROCEDURE IDENTIFIER:id
-            LPAREN FormalParamList:pl 
+            LPAREN FormalParamList:l
             RPAREN
         {:
             /* Add an entry for the procedure to the current scope */
@@ -385,6 +392,13 @@ ProcedureHead ::= KW_PROCEDURE IDENTIFIER:id
             /* Create a new scope for the symbols local to
              * the procedure. */
             currentScope = currentScope.newScope(procEntry);
+            procEntry.getType().setFormalParams(l);
+            // Add each parameter as a local variable to the scope
+            for (SymEntry.ParamEntry entry : l) {
+                if (currentScope.addEntry(entry) == null) {
+                    errors.error(entry.getIdent() + " repeated", entry.getLocation());
+                }
+            }
             RESULT = procEntry;
         :}
     |  KW_PROCEDURE IDENTIFIER:id error
@@ -393,7 +407,7 @@ ProcedureHead ::= KW_PROCEDURE IDENTIFIER:id
              * returned and a new scope created to allow the parsing of the
              * block body of the procedure to be processed in the new scope.
              */
-            SymEntry.ProcedureEntry procEntry = 
+            SymEntry.ProcedureEntry procEntry =
                 new SymEntry.ProcedureEntry(id, idxleft);
             procEntry.setScope(currentScope);
             currentScope = currentScope.newScope(procEntry);
@@ -401,9 +415,21 @@ ProcedureHead ::= KW_PROCEDURE IDENTIFIER:id
         :}
     ;
 
-
 /* To allow for the addition of procedure parameters. */
-FormalParamList ::= /* empty */
+FormalParamList ::= FormalParamList:l COMMA FormalParam:p
+         {:
+            l.add(p);
+            RESULT = l;
+         :}
+     |   FormalParam:p
+         {:
+            RESULT = new ArrayList<SymEntry.ParamEntry>();
+            RESULT.add(p);
+        :}
+     |   /* Empty */
+        {:
+            RESULT = new ArrayList<SymEntry.ParamEntry>();
+        :}
     ;
 CompoundStatement ::= KW_BEGIN StatementList:sl KW_END
         {:
@@ -424,47 +450,81 @@ StatementList ::= Statement:s
     ;
 
 Statement ::= KW_WHILE Condition:c KW_DO Statement:s
-        {: 
+        {:
             RESULT = new StatementNode.WhileNode(cxleft, c, s);
         :}
     |  KW_IF Condition:c KW_THEN Statement:s1 KW_ELSE Statement:s2
-        {: 
+        {:
             RESULT = new StatementNode.IfNode(cxleft, c, s1, s2);
         :}
     |  CompoundStatement:s
-        {: 
-            RESULT = s; 
+        {:
+            RESULT = s;
         :}
     | KW_READ LValue:lval
-        {: 
+        {:
             RESULT = new StatementNode.ReadNode(lvalxleft, lval);
         :}
     |  KW_WRITE Exp:e
-        {: 
+        {:
             RESULT = new StatementNode.WriteNode(exleft, e);
         :}
     |  LValue:lval ASSIGN Condition:rval
        {:
           RESULT = new StatementNode.AssignmentNode(lvalxleft, lval, rval);
-       :} 
+       :}
     |  KW_CALL IDENTIFIER:id LPAREN ActualParamList:pl RPAREN
-        {: 
-            RESULT = new StatementNode.CallNode(idxleft, id);
+        {:
+            RESULT = new StatementNode.CallNode(idxleft, id, pl);
         :}
     |  error:loc
-        {: 
+        {:
             RESULT = new StatementNode.ErrorNode(locxleft);
         :}
     ;
 
+FormalParam ::= IDENTIFIER:i COLON TypeIdentifier:t
+        {:
+            /*ParamEntry(String id, Location loc, Type type, boolean isRef) */
+            RESULT = new SymEntry.ParamEntry(i, ixleft, t, false);
+        :}
+    |   KW_VAR IDENTIFIER:i COLON TypeIdentifier:t
+        {:
+            RESULT = new SymEntry.ParamEntry(i, ixleft, t, true);
+        :}
+    |   error:e
+        {:
+            // Required to not crash compiler
+            RESULT = new SymEntry.ParamEntry("e", exleft, Type.ERROR_TYPE, false);
+        :}
+    ;
 
-ActualParamList ::= /* empty */
+ActualParamList ::= ActualParamList:l COMMA ActualParam:p
+        {:
+            l.add(p);
+            RESULT = l;
+        :}
+    |   ActualParam:p
+        {:
+            RESULT = new ArrayList<ExpNode.ParameterNode>();
+            RESULT.add(p);
+        :}
+    |
+        {:
+            RESULT = new ArrayList<ExpNode.ParameterNode>();
+        :}
+    ;
+
+ActualParam ::= Condition:c
+        {:
+            RESULT = new ExpNode.ParameterNode(cxleft, c);
+        :}
     ;
 
 LValue ::= IDENTIFIER:id
         {:
-            /* At this stage the identifier could be either a constant identifier or 
-             * a variable identifier but which cannot be determined until static 
+            /* At this stage the identifier could be either a constant identifier or
+             * a variable identifier but which cannot be determined until static
              * checking when the IdentifierNode will be transformed into either
              * a ConstNode or a VariableNode or detected as invalid.
              */
@@ -478,19 +538,19 @@ LValue ::= IDENTIFIER:id
 
 /* To allow for adding logical expressions. */
 Condition ::= RelCondition:e
-        {: 
+        {:
             RESULT = e;
         :}
     ;
 /* Relational operators are lower precedence than arithmetic operators. */
-RelCondition ::= Exp:e 
+RelCondition ::= Exp:e
         {:
             RESULT = e;
         :}
     |  Exp:e1 Relation:op Exp:e2
         {:
             RESULT = new ExpNode.BinaryNode(opxleft, op, e1,e2);
-        :} 
+        :}
     ;
 
 Relation ::= EQUALS
@@ -516,6 +576,10 @@ Relation ::= EQUALS
     |  GEQUALS
         {:
             RESULT = Operator.GEQUALS_OP;
+        :}
+    |  COLON
+        {:
+            RESULT = Operator.IN_OP;
         :}
     ;
 /* Expressions are structured into Exp, Term, and Factor to encode the
@@ -561,9 +625,21 @@ MulOp ::= TIMES
         :}
     ;
 
+ElementList ::= Condition:c
+        {:
+            RESULT = new ArrayList<ExpNode>();
+            RESULT.add(c);
+        :}
+    |  ElementList:el COMMA Condition:c
+        {:
+            el.add(c);
+            RESULT = el;
+        :}
+    ;
+
 Factor ::= PLUS Factor:e
         {:
-            RESULT = e; 
+            RESULT = e;
         :}
     |  UnaryOperator:op Factor:e
         {:
@@ -575,8 +651,16 @@ Factor ::= PLUS Factor:e
         :}
     |  NUMBER:n
         {:
-            RESULT = new ExpNode.ConstNode(nxleft, 
+            RESULT = new ExpNode.ConstNode(nxleft,
                     Predefined.INTEGER_TYPE, n);
+        :}
+    |  TypeIdentifier:t LCURLY ElementList:el RCURLY
+        {:
+           RESULT = new ExpNode.SetNode(txleft, t, el);
+        :}
+    |  TypeIdentifier:t LCURLY RCURLY   // Set declaration with no elements
+        {:
+            RESULT = new ExpNode.SetNode(txleft, t, new ArrayList<ExpNode>());
         :}
     |  LValue:lval
         {:
@@ -587,5 +671,8 @@ UnaryOperator ::= MINUS
         {:
             RESULT = Operator.NEG_OP;
         :}
+    |   SET_COMPLEMENT
+        {:
+            RESULT = Operator.COMPLEMENT_OP;
+        :}
     ;
-

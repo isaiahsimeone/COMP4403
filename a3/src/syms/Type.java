@@ -1189,7 +1189,6 @@ public abstract class Type {
         return null;
     }
 
-
     /**
      * Type representing a set with at most maxElements elements.
      */
@@ -1224,6 +1223,34 @@ public abstract class Type {
             }
             resolved = true;
             return this;
+        }
+
+        @Override
+        public void addOperators(Scope scope) {
+
+            ProductType BOOL_CROSS_SET = new ProductType(Predefined.BOOLEAN_TYPE, this);
+            ProductType INT_CROSS_SET = new ProductType(Predefined.INTEGER_TYPE, this);
+            ProductType SET_CROSS_SET = new ProductType(this, this);
+
+            // Ref x Set  ->   Bool
+            FunctionType BOOL_SET_BOOL = new FunctionType(BOOL_CROSS_SET, Predefined.BOOLEAN_TYPE);
+            // Ref x Set  ->   Bool
+            FunctionType INT_SET_BOOL = new FunctionType(INT_CROSS_SET, Predefined.BOOLEAN_TYPE);
+            // Set x Set  ->   Bool
+            FunctionType SET_SET_BOOL = new FunctionType(SET_CROSS_SET, Predefined.BOOLEAN_TYPE);
+            // Set x Set  ->   Set
+            FunctionType SET_SET_SET = new FunctionType(SET_CROSS_SET, this);
+
+            scope.addOperator(Operator.IN_OP, loc, BOOL_SET_BOOL);
+            scope.addOperator(Operator.IN_OP, loc, INT_SET_BOOL);
+            scope.addOperator(Operator.EQUALS_OP, loc, SET_SET_BOOL);
+            scope.addOperator(Operator.NEQUALS_OP, loc, SET_SET_BOOL);
+            scope.addOperator(Operator.UNION_OP, loc, SET_SET_SET);
+            scope.addOperator(Operator.INTERSECTION_OP, loc, SET_SET_SET);
+            scope.addOperator(Operator.DIFFERENCE_OP, loc, SET_SET_SET);
+
+            Type.FunctionType UNARY_COMPLEMENT = new FunctionType(this, this);
+            scope.addOperator(Operator.COMPLEMENT_OP, loc, UNARY_COMPLEMENT);
         }
 
         @Override
